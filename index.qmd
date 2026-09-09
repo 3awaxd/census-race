@@ -1,0 +1,37 @@
+---
+title: "Race and Ethnicity in Sarasota County"
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r}
+#| label: setup
+library(tidyverse)
+```
+
+## Overview
+
+This website visualizes race and ethnicity data across census tracts in Sarasota County, Florida, using the 2022 5-year American Community Survey (ACS).
+
+```{r}
+#| label: race-plot
+sarasota_race <- read_rds("data/sarasota_race.rds")
+
+sarasota_race |>
+  filter(variable != "total") |>
+  group_by(variable) |>
+  summarize(total_pop = sum(estimate, na.rm = TRUE)) |>
+  mutate(variable = str_to_title(variable)) |>
+  ggplot(aes(x = total_pop, y = reorder(variable, total_pop))) +
+  geom_col(fill = "steelblue") +
+  scale_x_continuous(labels = scales::comma) +
+  labs(
+    title = "Population by Race and Ethnicity",
+    subtitle = "Sarasota County, Florida",
+    x = "Total Population",
+    y = NULL
+  ) +
+  theme_minimal()
+```
