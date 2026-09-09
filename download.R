@@ -10,14 +10,16 @@ race_vars <- c(
   total = "B03002_001"
 )
 
-# Download 5-year ACS data across census tracts in Sarasota County, Florida
+# Download 5-year ACS data with tract boundary geometries
 sarasota_race <- get_acs(
   geography = "tract",
   variables = race_vars,
   state = "FL",
   county = "Sarasota",
-  year = 2022
+  year = 2022,
+  geometry = TRUE,
+  output = "wide"
 )
 
-# Save the raw data to the data folder
+# Save spatial data
 write_rds(sarasota_race, "data/sarasota_race.rds")

@@ -9,29 +9,76 @@ execute:
 ```{r}
 #| label: setup
 library(tidyverse)
+library(sf)
+library(leaflet)
+library(htmltools)
 ```
 
-## Overview
+## Interactive Map
 
-This website visualizes race and ethnicity data across census tracts in Sarasota County, Florida, using the 2022 5-year American Community Survey (ACS).
+Explore racial and ethnic demographics across census tracts in Sarasota County, Florida, based on the 2022 5-year American Community Survey (ACS). Use the controls in the top-right to switch between demographic layers, and hover over any tract to see detailed population shares.
 
 ```{r}
-#| label: race-plot
-sarasota_race <- read_rds("data/sarasota_race.rds")
+#| label: interactive-map
+# Load spatial census data and compute demographic percentages
+sarasota <- read_rds("data/sarasota_race.rds") |>
+  filter(!is.na(totalE) & totalE > 0) |>
+  mutate(
+    pct_white = round(100 * whiteE / totalE, 1),
+    pct_hispanic = round(100 * hispanicE / totalE, 1),
+    pct_black = round(100 * blackE / totalE, 1),
+    pct_asian = round(100 * asianE / totalE, 1)
+  ) |>
+  st_transform(crs = 4326)
 
-sarasota_race |>
-  filter(variable != "total") |>
-  group_by(variable) |>
-  summarize(total_pop = sum(estimate, na.rm = TRUE)) |>
-  mutate(variable = str_to_title(variable)) |>
-  ggplot(aes(x = total_pop, y = reorder(variable, total_pop))) +
-  geom_col(fill = "steelblue") +
-  scale_x_continuous(labels = scales::comma) +
-  labs(
-    title = "Population by Race and Ethnicity",
-    subtitle = "Sarasota County, Florida",
-    x = "Total Population",
-    y = NULL
-  ) +
-  theme_minimal()
+# Color palettes for each demographic group
+pal_hispanic <- colorNumeric("YlOrRd", domain = sarasota$pct_hispanic)
+pal_black <- colorNumeric("Purples", domain = sarasota$pct_black)
+pal_white <- colorNumeric("Blues", domain = sarasota$pct_white)
+
+# Tooltip labels showing tract breakdown on hover
+labels <- sprintf(
+  "<strong>%s</strong><br/>Total Population: %s<br/>White: %.1f%%<br/>Hispanic: %.1f%%<br/>Black: %.1f%%<br/>Asian: %.1f%%",
+  sarasota$NAME,
+  scales::comma(sarasota$totalE),
+  sarasota$pct_white,
+  sarasota$pct_hispanic,
+  sarasota$pct_black,
+  sarasota$pct_asian
+) |> lapply(HTML)
+
+# Interactive Leaflet map with layer selection
+leaflet(sarasota) |>
+  addProviderTiles("CartoDB.Positron") |>
+  addPolygons(
+    group = "% Hispanic",
+    fillColor = ~pal_hispanic(pct_hispanic),
+    fillOpacity = 0.7,
+    color = "white",
+    weight = 1,
+    highlightOptions = highlightOptions(weight = 2, color = "#444", fillOpacity = 0.9, bringToFront = TRUE),
+    label = labels
+  ) |>
+  addPolygons(
+    group = "% Black",
+    fillColor = ~pal_black(pct_black),
+    fillOpacity = 0.7,
+    color = "white",
+    weight = 1,
+    highlightOptions = highlightOptions(weight = 2, color = "#444", fillOpacity = 0.9, bringToFront = TRUE),
+    label = labels
+  ) |>
+  addPolygons(
+    group = "% White",
+    fillColor = ~pal_white(pct_white),
+    fillOpacity = 0.7,
+    color = "white",
+    weight = 1,
+    highlightOptions = highlightOptions(weight = 2, color = "#444", fillOpacity = 0.9, bringToFront = TRUE),
+    label = labels
+  ) |>
+  addLayersControl(
+    baseGroups = c("% Hispanic", "% Black", "% White"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
 ```
